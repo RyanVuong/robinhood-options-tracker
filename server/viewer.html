@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>RH Options Tracker</title>
+  <style>
+    :root {
+      --bg:     #0d1117;
+      --bg2:    #161b22;
+      --bg3:    #21262d;
+      --border: #30363d;
+      --text:   #c9d1d9;
+      --muted:  #8b949e;
+      --green:  #3fb950;
+      --red:    #f85149;
+      --blue:   #58a6ff;
+      --yellow: #e3b341;
+      --purple: #d2a8ff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Consolas', 'Cascadia Code', 'Monaco', monospace;
+      font-size: 13px;
+    }
+
+    /* ── header ── */
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { font-size: 15px; color: var(--blue); font-weight: 700; letter-spacing: .5px; }
+    .chip {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2px 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .chip.live  { border-color: var(--green); color: var(--green); }
+    .chip.error { border-color: var(--red);   color: var(--red);   }
+    .spacer { flex: 1; }
+    .hbtn {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      padding: 4px 12px;
+    }
+    .hbtn:hover { border-color: var(--blue); color: var(--blue); }
+
+    /* ── tabs ── */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      padding: 12px 20px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 6px 16px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+      background: transparent;
+      font: inherit;
+      position: relative;
+      bottom: -1px;
+    }
+    .tab.active {
+      background: var(--bg2);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    /* ── filter bar ── */
+    .filters {
+      padding: 10px 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .filters label { color: var(--muted); font-size: 11px; }
+    .filters select, .filters input {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      padding: 3px 8px;
+    }
+    .filters select:focus, .filters input:focus {
+      outline: none;
+      border-color: var(--blue);
+    }
+    #filter-strike { width: 90px; }
+
+    /* ── main content ── */
+    main { padding: 16px 20px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── snapshot meta ── */
+    .snap-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      display: flex;
+      gap: 16px;
+    }
+    .snap-meta strong { color: var(--text); }
+
+    /* ── table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 7px 10px;
+      text-align: right;
+      text-transform: uppercase;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th.left { text-align: left; }
+    thead th:hover { color: var(--blue); }
+    thead th.sorted { color: var(--blue); }
+    thead th.sorted::after { content: ' ▼'; font-size: 9px; }
+    thead th.sorted.asc::after { content: ' ▲'; font-size: 9px; }
+
+    tbody td {
+      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    tbody td.left { text-align: left; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--bg2); }
+
+    /* value colors */
+    .pos    { color: var(--green); }
+    .neg    { color: var(--red); }
+    .dim    { color: var(--muted); }
+    .hl     { color: var(--yellow); }
+
+    .badge {
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+    }
+    .badge.C { background: rgba(63,185,80,.15); color: var(--green); border: 1px solid rgba(63,185,80,.4); }
+    .badge.P { background: rgba(248,81,73,.15);  color: var(--red);   border: 1px solid rgba(248,81,73,.4); }
+
+    /* ── history log ── */
+    .log-header {
+      display: grid;
+      grid-template-columns: 180px 180px 90px 1fr;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 180px 180px 90px 1fr;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .log-row:last-child { border-bottom: none; }
+    .log-row:hover { background: var(--bg2); }
+    .log-ep { color: var(--yellow); }
+    .log-count { color: var(--muted); text-align: right; }
+    .log-id { color: var(--muted); text-align: right; }
+
+    .empty {
+      padding: 48px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* ── ATM row highlight ── */
+    tbody tr.atm-row td { background: rgba(227,179,65,.07); }
+    tbody tr.atm-row td:first-child { border-left: 3px solid var(--yellow); }
+    .atm-tag {
+      background: var(--yellow);
+      border-radius: 3px;
+      color: #000;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 6px;
+      padding: 1px 4px;
+      vertical-align: middle;
+    }
+
+    /* ── Signals tab ── */
+    .chip.rule { border-color: var(--yellow); color: var(--yellow); }
+    .chip.ml   { border-color: var(--purple); color: var(--purple); }
+
+    .sig-status {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      padding: 10px 0 12px;
+      flex-wrap: wrap;
+    }
+    .sig-config {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 20px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .sig-config label { color: var(--muted); font-size: 11px; }
+    .sig-config input {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      padding: 3px 8px;
+      width: 70px;
+    }
+    .sig-config input:focus { outline: none; border-color: var(--blue); }
+
+    .sig-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 12px;
+      padding: 16px 0;
+    }
+    .sig-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sig-card.long  { border-left: 3px solid var(--green); }
+    .sig-card.short { border-left: 3px solid var(--red); }
+    .sig-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .sig-card-title { font-size: 13px; font-weight: 700; }
+    .sig-age { font-size: 10px; color: var(--muted); }
+    .sig-row  { display: flex; gap: 16px; font-size: 12px; flex-wrap: wrap; }
+    .sig-lbl  { color: var(--muted); font-size: 10px; }
+    .sig-val  { color: var(--text); }
+    .sig-dir  { font-weight: 700; font-size: 12px; }
+    .sig-dir.long  { color: var(--green); }
+    .sig-dir.short { color: var(--red); }
+    .conf-bar-wrap {
+      background: var(--bg3);
+      border-radius: 3px;
+      height: 6px;
+      overflow: hidden;
+      flex: 1;
+      min-width: 80px;
+    }
+    .conf-bar {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .3s;
+    }
+    .conf-bar.high { background: var(--green); }
+    .conf-bar.mid  { background: var(--yellow); }
+    .conf-bar.low  { background: var(--muted); }
+    .sig-reasoning {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>RH Options Tracker</h1>
+  <span class="chip" id="status-chip">connecting…</span>
+  <span class="chip" id="total-chip">— rows</span>
+  <span class="chip" id="contracts-chip" style="display:none"></span>
+  <div class="spacer"></div>
+  <span class="chip" id="atm-chip" style="display:none"></span>
+  <span id="updated-label" style="font-size:11px;color:var(--muted)"></span>
+  &nbsp;
+  <button class="hbtn" id="pause-btn">Pause</button>
+  <button class="hbtn" onclick="load()">↺ Now</button>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-panel="snap">Live Snapshot</button>
+  <button class="tab" data-panel="hist">Capture History</button>
+  <button class="tab" data-panel="signals">Signals <span id="sig-count-badge" style="display:none;background:var(--red);color:#fff;border-radius:8px;font-size:10px;padding:1px 6px;margin-left:4px;vertical-align:middle"></span></button>
+</div>
+
+<div class="filters">
+  <label>Type</label>
+  <select id="filter-type">
+    <option value="">All</option>
+    <option value="C">Calls</option>
+    <option value="P">Puts</option>
+  </select>
+  <label>Expiry</label>
+  <select id="filter-expiry"><option value="">All</option></select>
+  <label>Strike ≥</label>
+  <input id="filter-strike-min" type="number" placeholder="—" step="5">
+  <label>≤</label>
+  <input id="filter-strike-max" type="number" placeholder="—" step="5">
+  <label>IV ≤</label>
+  <input id="filter-iv" type="number" placeholder="%" step="1" style="width:60px">
+  <label style="margin-left:8px">ATM ±</label>
+  <input id="filter-range" type="number" value="200" step="25" style="width:70px" title="Show strikes within this many points of ATM">
+</div>
+
+<main>
+  <div class="panel active" id="panel-snap">
+    <div class="snap-meta" id="snap-meta"></div>
+    <div class="table-wrap" id="snap-table"><div class="empty">Waiting for data…</div></div>
+  </div>
+
+  <div class="panel" id="panel-hist">
+    <div class="table-wrap" id="hist-table"><div class="empty">No data yet.</div></div>
+  </div>
+
+  <div class="panel" id="panel-signals">
+    <div class="sig-status">
+      <span class="chip" id="sig-model-chip">checking…</span>
+      <span id="sig-samples" style="font-size:11px;color:var(--muted)"></span>
+      <span id="sig-auc"     style="font-size:11px;color:var(--purple)"></span>
+      <span id="sig-spx"     style="font-size:12px;font-weight:700"></span>
+      <span id="sig-spx-meta" style="font-size:11px;color:var(--muted)"></span>
+      <span id="sig-refresh" style="font-size:11px;color:var(--muted)"></span>
+    </div>
+    <div class="sig-config">
+      <label>Momentum ≥</label>
+      <input id="sig-momentum" type="number" value="2.0" step="0.5" title="% move in 30s to trigger signal">
+      <span style="color:var(--muted);font-size:11px">%</span>
+      <label style="margin-left:6px">Target gain</label>
+      <input id="sig-target" type="number" value="5.0" step="0.5" title="Triple Barrier take-profit %">
+      <span style="color:var(--muted);font-size:11px">%</span>
+      <label style="margin-left:6px">Stop</label>
+      <input id="sig-stop" type="number" value="2.0" step="0.5" title="Triple Barrier stop-loss %">
+      <span style="color:var(--muted);font-size:11px">%</span>
+      <label style="margin-left:6px">Min confidence</label>
+      <input id="sig-conf-min" type="number" value="0.0" min="0" max="1" step="0.05" title="Hide signals below this confidence">
+      <button class="hbtn" id="sig-apply-btn" style="margin-left:4px">Apply</button>
+    </div>
+    <div id="sig-cards" class="sig-cards"><div class="empty">Switch to this tab to start receiving signals…</div></div>
+  </div>
+</main>
+
+<script>
+const API = 'http://127.0.0.1:7842';
+const REFRESH = 2000;
+
+let sortCol = 'strike';
+let sortAsc = true;
+let paused = false;
+let refreshTimer = null;
+let lastResults = [];
+let atmStrike = null;
+
+// ── OCC symbol decoder ──────────────────────────────────────────────────────
+// Format: "SPXW  260225C06965000"  (root padded to 6, YYMMDD, C/P, strike*1000 padded 8)
+function parseOcc(occ) {
+  if (!occ) return null;
+  const tail = occ.trim().slice(-15);
+  const yy = tail.slice(0, 2), mm = tail.slice(2, 4), dd = tail.slice(4, 6);
+  const type = tail[6];
+  const strike = parseInt(tail.slice(7), 10) / 1000;
+  return { expiry: `20${yy}-${mm}-${dd}`, expShort: `${mm}/${dd}`, type, strike };
+}
+
+// ── formatting helpers ───────────────────────────────────────────────────────
+const p2 = v => v != null ? '$' + parseFloat(v).toFixed(2) : '<span class="dim">—</span>';
+const p4 = v => v != null ? parseFloat(v).toFixed(4) : '<span class="dim">—</span>';
+const pct = v => v != null ? (parseFloat(v) * 100).toFixed(1) + '%' : '<span class="dim">—</span>';
+const int = v => v != null ? parseInt(v).toLocaleString() : '<span class="dim">—</span>';
+
+function colorVal(v, digits = 4) {
+  if (v == null) return '<span class="dim">—</span>';
+  const n = parseFloat(v);
+  const cls = n > 0 ? 'pos' : n < 0 ? 'neg' : 'dim';
+  return `<span class="${cls}">${n.toFixed(digits)}</span>`;
+}
+function colorPct(v) {
+  if (v == null) return '<span class="dim">—</span>';
+  const n = parseFloat(v) * 100;
+  const cls = n >= 30 ? 'hl' : 'dim';
+  return `<span class="${cls}">${n.toFixed(1)}%</span>`;
+}
+
+// ── table rendering ──────────────────────────────────────────────────────────
+const COLS = [
+  { key: 'expShort',   label: 'Expiry',  cls: 'left', sort: 'expiry' },
+  { key: 'type',       label: 'Type',    cls: 'left' },
+  { key: 'strike',     label: 'Strike',  cls: '' },
+  { key: 'mark_price', label: 'Mark',    cls: '' },
+  { key: 'bid_price',  label: 'Bid',     cls: '' },
+  { key: 'ask_price',  label: 'Ask',     cls: '' },
+  { key: 'implied_volatility', label: 'IV', cls: '' },
+  { key: 'delta',      label: 'Delta',   cls: '' },
+  { key: 'gamma',      label: 'Gamma',   cls: '' },
+  { key: 'theta',      label: 'Theta',   cls: '' },
+  { key: 'vega',       label: 'Vega',    cls: '' },
+  { key: 'volume',     label: 'Vol',     cls: '' },
+  { key: 'open_interest', label: 'OI',   cls: '' },
+  { key: 'chance_of_profit_long', label: 'P(profit)', cls: '' },
+];
+
+function cellHtml(col, row) {
+  const v = row[col.key];
+  switch (col.key) {
+    case 'expShort':   return `<span class="dim">${row.expiry ?? '—'}</span>`;
+    case 'type':       return v ? `<span class="badge ${v}">${v === 'C' ? 'CALL' : 'PUT'}</span>` : '—';
+    case 'strike': {
+      if (v == null) return '—';
+      const n = parseFloat(v);
+      const tag = (atmStrike !== null && n === atmStrike) ? ' <span class="atm-tag">ATM</span>' : '';
+      return `<strong>$${n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}</strong>${tag}`;
+    }
+    case 'mark_price': return `<span class="hl">${p2(v)}</span>`;
+    case 'bid_price':
+    case 'ask_price':  return p2(v);
+    case 'implied_volatility': return colorPct(v);
+    case 'delta':      return colorVal(v, 4);
+    case 'gamma':      return colorVal(v, 4);
+    case 'theta':      return colorVal(v, 4);
+    case 'vega':       return colorVal(v, 4);
+    case 'volume':     return `<span class="dim">${int(v)}</span>`;
+    case 'open_interest': return `<span class="dim">${int(v)}</span>`;
+    case 'chance_of_profit_long': return pct(v);
+    default: return v ?? '<span class="dim">—</span>';
+  }
+}
+
+function applySort(rows) {
+  const col = sortCol;
+  return [...rows].sort((a, b) => {
+    let av = a[col], bv = b[col];
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) { av = an; bv = bn; }
+    if (av < bv) return sortAsc ? -1 : 1;
+    if (av > bv) return sortAsc ? 1 : -1;
+    return 0;
+  });
+}
+
+function applyFilters(rows) {
+  const typeF   = document.getElementById('filter-type').value;
+  const expiryF = document.getElementById('filter-expiry').value;
+  const sMin    = parseFloat(document.getElementById('filter-strike-min').value);
+  const sMax    = parseFloat(document.getElementById('filter-strike-max').value);
+  const ivMax   = parseFloat(document.getElementById('filter-iv').value);
+  const range   = parseFloat(document.getElementById('filter-range').value);
+  return rows.filter(r => {
+    // Drop contracts with no Greeks (incomplete/stale rows)
+    if (!r.delta || !r.implied_volatility) return false;
+    if (typeF   && r.type   !== typeF)                 return false;
+    if (expiryF && r.expiry !== expiryF)               return false;
+    if (!isNaN(sMin) && r.strike < sMin)               return false;
+    if (!isNaN(sMax) && r.strike > sMax)               return false;
+    if (!isNaN(ivMax) && parseFloat(r.implied_volatility) * 100 > ivMax) return false;
+    // ATM proximity filter
+    if (!isNaN(range) && range > 0 && atmStrike !== null) {
+      if (Math.abs(r.strike - atmStrike) > range) return false;
+    }
+    return true;
+  });
+}
+
+function renderSnapshot(results, ts) {
+  // Enrich with decoded OCC data
+  const enriched = results.map(r => {
+    const occ = parseOcc(r.occ_symbol);
+    return { ...r, ...(occ ?? {}), _raw: r };
+  });
+
+  // Estimate ATM: call with delta closest to 0.5 among complete rows
+  const completeCalls = enriched.filter(r => r.type === 'C' && r.delta && r.implied_volatility);
+  if (completeCalls.length > 0) {
+    completeCalls.sort((a, b) =>
+      Math.abs(parseFloat(a.delta) - 0.5) - Math.abs(parseFloat(b.delta) - 0.5)
+    );
+    atmStrike = completeCalls[0].strike;
+    const atmChip = document.getElementById('atm-chip');
+    atmChip.style.display = '';
+    atmChip.textContent = `SPX ~$${atmStrike.toLocaleString()}`;
+  }
+
+  lastResults = enriched;
+
+  // Populate expiry filter
+  const expiries = [...new Set(enriched.map(r => r.expiry).filter(Boolean))].sort();
+  const expiryEl = document.getElementById('filter-expiry');
+  const prevExpiry = expiryEl.value;
+  expiryEl.innerHTML = '<option value="">All</option>' +
+    expiries.map(e => `<option value="${e}"${e===prevExpiry?' selected':''}>${e}</option>`).join('');
+
+  renderTable();
+}
+
+function renderTable() {
+  const filtered = applyFilters(lastResults);
+  const sorted   = applySort(filtered);
+
+  const wrap = document.getElementById('snap-table');
+  const meta = document.getElementById('snap-meta');
+  const contractsChip = document.getElementById('contracts-chip');
+
+  contractsChip.style.display = '';
+  contractsChip.textContent = `${filtered.length} contracts`;
+
+  meta.innerHTML = `
+    <span>Showing <strong>${filtered.length}</strong> of <strong>${lastResults.length}</strong> contracts</span>
+    <span>Sorted by <strong>${sortCol}</strong> ${sortAsc ? '▲' : '▼'}</span>
+  `;
+
+  if (sorted.length === 0) {
+    wrap.innerHTML = '<div class="empty">No contracts match the current filters.</div>';
+    return;
+  }
+
+  const thRow = COLS.map(c => {
+    const sk = c.sort ?? c.key;
+    const sorted = sortCol === sk;
+    const cls = [c.cls || '', 'left' in c && c.cls === 'left' ? 'left' : '', sorted ? 'sorted' : '', sorted && sortAsc ? 'asc' : ''].filter(Boolean).join(' ');
+    return `<th class="${cls}" onclick="toggleSort('${sk}')">${c.label}</th>`;
+  }).join('');
+
+  const bodyRows = sorted.map(row => {
+    const isAtm = atmStrike !== null && row.strike === atmStrike;
+    const cells = COLS.map(c =>
+      `<td class="${c.cls||''}">${cellHtml(c, row)}</td>`
+    ).join('');
+    return `<tr${isAtm ? ' class="atm-row"' : ''}>${cells}</tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table><thead><tr>${thRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+}
+
+function renderHistory(rows) {
+  const wrap = document.getElementById('hist-table');
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty">No rows yet.</div>';
+    return;
+  }
+  const logRows = rows.map(r => {
+    let count = '—';
+    try {
+      const p = JSON.parse(r.payload);
+      const res = p?.results ?? (Array.isArray(p) ? p : null);
+      count = res ? res.length + ' contracts' : '1 record';
+    } catch {}
+    const ts = new Date(r.ts).toLocaleString();
+    return `<div class="log-row">
+      <span class="dim">${ts}</span>
+      <span class="log-ep">${r.endpoint}</span>
+      <span>${count}</span>
+      <span class="log-id">#${r.id}</span>
+    </div>`;
+  }).join('');
+  wrap.innerHTML = `
+    <div class="log-header"><span>Time</span><span>Endpoint</span><span>Contracts</span><span style="text-align:right">Row ID</span></div>
+    ${logRows}
+  `;
+}
+
+// ── data loading ─────────────────────────────────────────────────────────────
+async function load() {
+  const statusEl  = document.getElementById('status-chip');
+  const totalEl   = document.getElementById('total-chip');
+  const updatedEl = document.getElementById('updated-label');
+  const scrollY   = window.scrollY;
+  try {
+    const [snapResp, histResp] = await Promise.all([
+      fetch(`${API}/data?endpoint=marketdata%2Foptions&limit=30`),
+      fetch(`${API}/data?limit=50`),
+    ]);
+    const [snapRows, histRows] = await Promise.all([snapResp.json(), histResp.json()]);
+
+    if (histRows.length) totalEl.textContent = `${histRows[0].id} total rows`;
+
+    if (snapRows.length) {
+      // Robinhood splits one poll cycle into multiple batched requests.
+      // Merge the last 30s of rows by instrument_id so we always show a
+      // complete picture instead of whichever partial batch arrived last.
+      const cutoff = Date.now() - 30_000;
+      const contractMap = new Map();
+      for (const row of [...snapRows].reverse()) { // oldest → newest so latest wins
+        if (row.ts < cutoff) continue;
+        let parsed;
+        try { parsed = JSON.parse(row.payload); } catch { continue; }
+        const results = parsed?.results ?? (Array.isArray(parsed) ? parsed : []);
+        for (const c of results) {
+          contractMap.set(c.instrument_id, c);
+        }
+      }
+      if (contractMap.size > 0) {
+        renderSnapshot([...contractMap.values()], snapRows[0].ts);
+      }
+    }
+    renderHistory(histRows);
+
+    statusEl.textContent = 'live';
+    statusEl.className   = 'chip live';
+    updatedEl.textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    statusEl.textContent = 'error';
+    statusEl.className   = 'chip error';
+    console.error(e);
+  }
+  window.scrollTo(0, scrollY);
+}
+
+// ── sort ─────────────────────────────────────────────────────────────────────
+function toggleSort(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  renderTable();
+}
+
+// ── auto-refresh ─────────────────────────────────────────────────────────────
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  if (paused) return;
+  refreshTimer = setTimeout(() => load().then(scheduleRefresh), REFRESH);
+}
+
+// ── tabs ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+    // Start/stop signal polling based on active tab
+    if (btn.dataset.panel === 'signals') {
+      sigTabActive = true;
+      loadSignals().then(scheduleSigRefresh);
+    } else {
+      sigTabActive = false;
+      clearTimeout(sigTimer);
+    }
+  });
+});
+
+// ── pause ────────────────────────────────────────────────────────────────────
+document.getElementById('pause-btn').addEventListener('click', () => {
+  paused = !paused;
+  const btn = document.getElementById('pause-btn');
+  const label = document.getElementById('updated-label');
+  btn.textContent = paused ? 'Resume' : 'Pause';
+  if (paused) {
+    clearTimeout(refreshTimer);
+    label.textContent = 'paused';
+  } else {
+    load().then(scheduleRefresh);
+  }
+});
+
+// ── filter wiring ─────────────────────────────────────────────────────────────
+['filter-type','filter-expiry','filter-strike-min','filter-strike-max','filter-iv','filter-range'].forEach(id => {
+  document.getElementById(id).addEventListener('input', renderTable);
+});
+
+// ── init ─────────────────────────────────────────────────────────────────────
+load().then(scheduleRefresh);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SIGNALS TAB
+// ══════════════════════════════════════════════════════════════════════════════
+const SIG_API     = 'http://127.0.0.1:7843';
+const SIG_REFRESH = 2000;
+
+let sigTabActive = false;
+let sigTimer     = null;
+
+// ── confidence bar helpers ────────────────────────────────────────────────────
+function confCls(c) { return c >= 0.6 ? 'high' : c >= 0.35 ? 'mid' : 'low'; }
+function confBar(c) {
+  const pct = Math.round(c * 100);
+  const cls = confCls(c);
+  return `
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="conf-bar-wrap"><div class="conf-bar ${cls}" style="width:${pct}%"></div></div>
+      <span class="${cls === 'high' ? 'pos' : cls === 'mid' ? 'hl' : 'dim'}" style="font-size:12px;font-weight:700;min-width:34px">${pct}%</span>
+    </div>`;
+}
+
+// ── render a single signal card ───────────────────────────────────────────────
+function renderSignalCard(sig) {
+  const occ  = parseOcc(sig.occ_symbol) || {};
+  const dir  = sig.direction === 'LONG' ? 'long' : 'short';
+  const dirArrow = sig.direction === 'LONG' ? '↑ LONG' : '↓ SHORT';
+  const typeLabel = sig.type === 'C' ? 'CALL' : sig.type === 'P' ? 'PUT' : sig.type;
+  const strike = sig.strike != null ? `$${parseFloat(sig.strike).toLocaleString()}` : '—';
+  const expiry = occ.expShort || '—';
+
+  const p30  = sig.pct_30s  != null ? `${sig.pct_30s > 0 ? '+' : ''}${sig.pct_30s.toFixed(1)}%` : '—';
+  const p60  = sig.pct_60s  != null ? `${sig.pct_60s > 0 ? '+' : ''}${sig.pct_60s.toFixed(1)}%` : '—';
+  const p120 = sig.pct_120s != null ? `${sig.pct_120s > 0 ? '+' : ''}${sig.pct_120s.toFixed(1)}%` : null;
+
+  const age   = sig.age_s != null ? (sig.age_s < 2 ? 'now' : `${Math.round(sig.age_s)}s ago`) : '';
+
+  // Intraday stats
+  const dayRange  = sig.intraday_range_pct  != null ? `${sig.intraday_range_pct.toFixed(1)}%`  : '—';
+  const dayRet    = sig.intraday_return_pct != null
+    ? `${sig.intraday_return_pct >= 0 ? '+' : ''}${sig.intraday_return_pct.toFixed(1)}%` : '—';
+  const dayRetCls = sig.intraday_return_pct != null ? (sig.intraday_return_pct >= 0 ? 'pos' : 'neg') : 'dim';
+  const posPct    = sig.price_position      != null ? Math.round(sig.price_position * 100) : null;
+  const posLabel  = posPct != null ? (posPct > 80 ? 'near high' : posPct < 20 ? 'near low' : 'mid-range') : null;
+  const money     = sig.moneyness_pct       != null
+    ? `${sig.moneyness_pct >= 0 ? '+' : ''}${sig.moneyness_pct.toFixed(1)}% from ATM` : null;
+
+  return `
+    <div class="sig-card ${dir}">
+      <div class="sig-card-header">
+        <span class="sig-card-title">
+          <span class="badge ${sig.type}">${typeLabel}</span>
+          &nbsp;${strike}&nbsp;<span class="dim" style="font-size:11px">${expiry}</span>
+        </span>
+        <span class="sig-age">${age}</span>
+      </div>
+      <div class="sig-row">
+        <span><span class="sig-lbl">Mark</span><br><span class="hl sig-val">$${sig.mark_price.toFixed(2)}</span></span>
+        <span><span class="sig-lbl">Bid/Ask</span><br><span class="sig-val dim">$${sig.bid_price.toFixed(2)}/$${sig.ask_price.toFixed(2)}</span></span>
+        <span><span class="sig-lbl">Spread</span><br><span class="sig-val dim">${sig.spread_pct.toFixed(1)}%</span></span>
+        <span><span class="sig-lbl">Delta</span><br><span class="sig-val">${sig.delta.toFixed(4)}</span></span>
+        <span><span class="sig-lbl">IV</span><br><span class="hl sig-val">${sig.iv.toFixed(1)}%</span></span>
+      </div>
+      <div class="sig-row" style="align-items:center">
+        <span class="sig-dir ${dir}">${dirArrow}</span>
+        <span><span class="sig-lbl">30s</span> <span class="${sig.pct_30s >= 0 ? 'pos' : 'neg'}">${p30}</span></span>
+        <span><span class="sig-lbl">60s</span> <span class="${(sig.pct_60s || 0) >= 0 ? 'pos' : 'neg'}">${p60}</span></span>
+        ${p120 ? `<span><span class="sig-lbl">2min</span> <span class="${(sig.pct_120s || 0) >= 0 ? 'pos' : 'neg'}">${p120}</span></span>` : ''}
+      </div>
+      <div class="sig-row" style="font-size:11px">
+        <span><span class="sig-lbl">Day range</span><br><span class="sig-val hl">${dayRange}</span></span>
+        <span><span class="sig-lbl">Day return</span><br><span class="${dayRetCls}">${dayRet}</span></span>
+        ${posLabel != null ? `<span><span class="sig-lbl">In day range</span><br><span class="sig-val">${posLabel} (${posPct}%)</span></span>` : ''}
+        ${money   != null ? `<span><span class="sig-lbl">vs ATM</span><br><span class="dim">${money}</span></span>` : ''}
+      </div>
+      ${confBar(sig.confidence)}
+      <div class="sig-reasoning">${sig.reasoning}</div>
+    </div>`;
+}
+
+// ── render model status + all cards ──────────────────────────────────────────
+function renderSignals(data) {
+  const { model_status: ms, signals } = data;
+
+  // Model status chip
+  const chipEl    = document.getElementById('sig-model-chip');
+  const samplesEl = document.getElementById('sig-samples');
+  const aucEl     = document.getElementById('sig-auc');
+  const refEl     = document.getElementById('sig-refresh');
+
+  if (ms.phase === 'ml') {
+    chipEl.textContent  = 'ML model';
+    chipEl.className    = 'chip ml';
+    aucEl.textContent   = ms.auc != null ? `AUC ${ms.auc}` : '';
+  } else {
+    chipEl.textContent  = 'Rule-based';
+    chipEl.className    = 'chip rule';
+    aucEl.textContent   = `(ML unlocks at ${data.config?.min_train_samples ?? 200} labeled rows)`;
+  }
+  samplesEl.textContent = `${ms.n_labeled.toLocaleString()} labeled · ${ms.n_positive} positive`;
+  refEl.textContent     = ms.last_refresh ? `refreshed ${ms.last_refresh.slice(11,19)}` : '';
+
+  // SPX daily context in status bar
+  const spxEl     = document.getElementById('sig-spx');
+  const spxMetaEl = document.getElementById('sig-spx-meta');
+  const ctx = data.spx_context || {};
+  if (ctx.current) {
+    const dp  = ctx.daily_pct;
+    const vyp = ctx.vs_yesterday_pct;
+    spxEl.textContent = `SPX ~$${ctx.current.toLocaleString()}`;
+    spxEl.style.color = 'var(--text)';
+    const parts = [];
+    if (dp  != null) parts.push(`${dp  >= 0 ? '+' : ''}${dp.toFixed(2)}% today`);
+    if (vyp != null) parts.push(`${vyp >= 0 ? '+' : ''}${vyp.toFixed(2)}% vs yest`);
+    spxMetaEl.textContent = parts.join(' · ');
+  } else {
+    spxEl.textContent = '';
+    spxMetaEl.textContent = '';
+  }
+
+  // Badge count
+  const badge = document.getElementById('sig-count-badge');
+  if (signals.length > 0) {
+    badge.textContent = signals.length;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // Cards
+  const wrap = document.getElementById('sig-cards');
+  if (ms.error) {
+    wrap.innerHTML = `<div class="empty" style="color:var(--red)">Engine error: ${ms.error}</div>`;
+    return;
+  }
+  if (signals.length === 0) {
+    wrap.innerHTML = '<div class="empty">No signals right now — waiting for momentum moves ≥ configured threshold…</div>';
+    return;
+  }
+  wrap.innerHTML = signals.map(renderSignalCard).join('');
+}
+
+function renderSignalsOffline() {
+  document.getElementById('sig-model-chip').textContent = 'Signal server offline';
+  document.getElementById('sig-model-chip').className   = 'chip error';
+  document.getElementById('sig-cards').innerHTML =
+    '<div class="empty">Signal server not running.<br><br>' +
+    '<code style="background:var(--bg3);padding:6px 12px;border-radius:4px;display:inline-block">' +
+    'cd analysis &amp;&amp; py signal_server.py' +
+    '</code></div>';
+  document.getElementById('sig-count-badge').style.display = 'none';
+}
+
+// ── fetch + schedule ──────────────────────────────────────────────────────────
+async function loadSignals() {
+  if (!sigTabActive || paused) return;
+  try {
+    const resp = await fetch(`${SIG_API}/signals`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    renderSignals(await resp.json());
+  } catch {
+    renderSignalsOffline();
+  }
+}
+
+function scheduleSigRefresh() {
+  clearTimeout(sigTimer);
+  if (!sigTabActive || paused) return;
+  sigTimer = setTimeout(() => loadSignals().then(scheduleSigRefresh), SIG_REFRESH);
+}
+
+// ── Apply config button ───────────────────────────────────────────────────────
+document.getElementById('sig-apply-btn').addEventListener('click', async () => {
+  const body = {
+    momentum_thresh_pct: parseFloat(document.getElementById('sig-momentum').value),
+    profit_barrier_pct:  parseFloat(document.getElementById('sig-target').value),
+    stop_barrier_pct:    parseFloat(document.getElementById('sig-stop').value),
+    conf_display_min:    parseFloat(document.getElementById('sig-conf-min').value),
+  };
+  try {
+    await fetch(`${SIG_API}/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    await loadSignals();
+  } catch {
+    renderSignalsOffline();
+  }
+});
+</script>
+</body>
+</html>

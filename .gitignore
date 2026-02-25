@@ -1,0 +1,6 @@
+/.claude
+/server/options.db
+__pycache__/
+*.pyc
+*.pyo
+node_modules/

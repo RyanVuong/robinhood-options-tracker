@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RH Options Tracker</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      width: 220px;
+      padding: 14px;
+      margin: 0;
+    }
+    h2 {
+      font-size: 13px;
+      color: #00c853;
+      margin: 0 0 12px;
+      letter-spacing: 0.5px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .label { color: #888; }
+    .value { color: #fff; font-weight: bold; }
+    .value.err { color: #ff5252; }
+    .value.ok  { color: #00e676; }
+    #last {
+      margin-top: 10px;
+      font-size: 10px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h2>RH Options Tracker</h2>
+  <div class="row">
+    <span class="label">Captured</span>
+    <span class="value ok" id="captured">—</span>
+  </div>
+  <div class="row">
+    <span class="label">Errors</span>
+    <span class="value err" id="errors">—</span>
+  </div>
+  <div id="last">Last capture: —</div>
+  <script src="popup.js"></script>
+</body>
+</html>
